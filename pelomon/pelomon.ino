@@ -152,6 +152,7 @@ void setup() {
     bool use_simulator = (EEPROM.read(EEPROM_FORCE_SIMULATION_AT_STARTUP)
                           || (digitalRead(PIN_LOW_FORCE_SIM) == LOW)
                           || 0);
+    use_simulator = true;
     // Clear the force flag for next bootup
     if (use_simulator) EEPROM.update(EEPROM_FORCE_SIMULATION_AT_STARTUP,
                                      false);
@@ -251,6 +252,7 @@ bool process_message_pair(void) {
     const unsigned long process_start = micros();
     bool updated_ride_status = false;
     bool done_with_boot = false;
+    bool is_ble_updated = false;
 
     // Parse messages in the buffers
     HUMessage hu_msg(hu_buf, hu_buf_bytes);
@@ -298,7 +300,7 @@ bool process_message_pair(void) {
     const unsigned long current_time = millis();
     if (current_time - last_status_sent >= BT_UPDATE_INTERVAL_MILLIS) {
         last_status_sent = current_time;
-        power_service.update(ride_status.integral_crank_revolutions(),
+        is_ble_updated = power_service.update(ride_status.integral_crank_revolutions(),
                              ride_status.last_crank_rev_ts_millis(),
                              ride_status.integral_wheel_revolutions(),
                              ride_status.last_wheel_rev_ts_millis(),
@@ -311,6 +313,8 @@ bool process_message_pair(void) {
 
     if (LOG_LEVEL >= LOG_LEVEL_INFO && updated_ride_status) {
         // this call takes about 11ms in non DEBUG mode if only one print call
+        if (is_ble_updated) logger.print(F("BLE Serices Update: Success\n"));
+        else logger.print(F("BLE Serices Update: Failed\n"));
         serial_print_state();
     }
     if (LOG_LEVEL >= LOG_LEVEL_DEBUG) {

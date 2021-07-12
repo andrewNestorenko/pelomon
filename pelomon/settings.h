@@ -7,7 +7,7 @@
  * Licensed under the CC-BY-NC 4.0 license
  * (https://creativecommons.org/licenses/by-nc/4.0/).
  */
-#define SIMULATOR_MESSAGE_INTERVAL_MILLIS 100
+#define SIMULATOR_MESSAGE_INTERVAL_MILLIS 500
 
 #define BT_UPDATE_INTERVAL_MILLIS 500
 
@@ -50,7 +50,7 @@
 // If there is a hardware inverter in the RX chain we do not
 // need to invert the SoftwareSerial sense. If no inverter, then
 // we gotta do it in software.
-#define INVERT_PELOTON_SERIAL false
+#define INVERT_PELOTON_SERIAL true
 
 // Bluefruit settings
 // SHARED SPI SETTINGS
@@ -63,5 +63,3 @@
 #define BLUEFRUIT_SPI_CS               8
 #define BLUEFRUIT_SPI_IRQ              7
 #define BLUEFRUIT_SPI_RST              4    // Optional but recommended, set to -1 if unused
-
-

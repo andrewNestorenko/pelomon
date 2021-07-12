@@ -183,32 +183,34 @@ class BLECyclingPower {
               "02-01-06-"
               "02-0a-00-"
               "11-06-9e-ca-dc-24-0e-e5-a9-e0-93-f3-a3-b5-01-00-40-6e-"
-              "05-02-18-18-16-18"
+              "03-02-18-18"
               ));
         ble_.reset();
 
-        if (LOG_LEVEL >= LOG_LEVEL_DEBUG) {
-            logger.print(F("Checking GATTs\n"));
-            ble_.sendCommandCheckOK(F("AT+GATTLIST"));
-        }
+        // if (LOG_LEVEL >= LOG_LEVEL_DEBUG) {
+        //     logger.print(F("Checking GATTs\n"));
+        //     ble_.sendCommandCheckOK(F("AT+GATTLIST"));
+        // }
         // Set up initial values for feature and sensor location
 
-        gatt_.setChar(cp_sensor_location_id, SENSOR_LOCATION_LEFT_CRANK);
-        gatt_.setChar(csc_sensor_location_id, SENSOR_LOCATION_LEFT_CRANK);
+        gatt_.setChar(cp_sensor_location_id, SENSOR_LOCATION_RIGHT_CRANK);
+        // gatt_.setChar(csc_sensor_location_id, SENSOR_LOCATION_LEFT_CRANK);
 
-        gatt_.setChar(cp_feature_id,
-                      (uint32_t) (CPF_CRANK_REVOLUTION_DATA_SUPPORTED |
-                                  CPF_WHEEL_REVOLUTION_DATA_SUPPORTED |
-                                  CPF_ACCUMULATED_ENERGY_SUPPORTED));
-        gatt_.setChar(csc_feature_id,
-                      (uint16_t) (CSCF_CRANK_REVOLUTION_DATA_SUPPORTED |
-                                  CSCF_WHEEL_REVOLUTION_DATA_SUPPORTED));
-        const uint8_t zero = 0;
-        gatt_.setChar(sc_control_point_id, &zero, 1);
+        gatt_.setChar(cp_feature_id, (uint32_t) CPF_CRANK_REVOLUTION_DATA_SUPPORTED);
+        // gatt_.setChar(cp_feature_id,
+        //               (uint32_t) (CPF_CRANK_REVOLUTION_DATA_SUPPORTED |
+        //                           CPF_WHEEL_REVOLUTION_DATA_SUPPORTED |
+        //                           CPF_ACCUMULATED_ENERGY_SUPPORTED));
+        // gatt_.setChar(csc_feature_id,
+        //               (uint16_t) (CSCF_CRANK_REVOLUTION_DATA_SUPPORTED |
+        //                           CSCF_WHEEL_REVOLUTION_DATA_SUPPORTED));
+        // const uint8_t zero = 0;
+        // gatt_.setChar(sc_control_point_id, &zero, 1);
         return;
     }
 
     bool gatts_as_expected() {
+        return false;
         // NB: this function must be updated if gatt setup is changed
         char linebuf[128];
 
@@ -293,8 +295,8 @@ class BLECyclingPower {
         cp_measurement_id = gatt_.addCharacteristic(
             /* uuid          */ CYCLING_POWER_MEASUREMENT_CHAR_UUID,
             /* properties    */ (GATT_CHARS_PROPERTIES_NOTIFY),
-            /* min_len       */ 16,
-            /* max_len       */ 16,
+            /* min_len       */ 8,
+            /* max_len       */ 8,
             /* datatype      */ BLE_DATATYPE_AUTO,
             /* description   */ NULL,
             /* presentFormat */ NULL);
@@ -310,53 +312,11 @@ class BLECyclingPower {
             /* presentFormat */ NULL);
     }
 
-    void setup_cycling_speed_cadence_feature() {
-        csc_service_id = gatt_.addService(CYCLING_SPEED_CADENCE_SERVICE_UUID);
-        csc_feature_id = gatt_.addCharacteristic(
-            /* uuid          */ CSC_FEATURE_CHAR_UUID,
-            /* properties    */ GATT_CHARS_PROPERTIES_READ,
-            /* min_len       */ 2,
-            /* max_len       */ 2,
-            /* datatype      */ BLE_DATATYPE_AUTO,
-            /* description   */ NULL,
-            /* presentFormat */ NULL);
-
-        // Cycling Speed/Cadence Measurement
-        csc_measurement_id = gatt_.addCharacteristic(
-            /* uuid          */ CSC_MEASUREMENT_CHAR_UUID,
-            /* properties    */ (GATT_CHARS_PROPERTIES_NOTIFY),
-            /* min_len       */ 11,
-            /* max_len       */ 11,
-            /* datatype      */ BLE_DATATYPE_AUTO,
-            /* description   */ NULL,
-            /* presentFormat */ NULL);
-
-        // Sensor Location
-        csc_sensor_location_id = gatt_.addCharacteristic(
-            /* uuid          */ SENSOR_LOCATION_CHAR_UUID,
-            /* properties    */ GATT_CHARS_PROPERTIES_READ,
-            /* min_len       */ 1,
-            /* max_len       */ 1,
-            /* datatype      */ BLE_DATATYPE_AUTO,
-            /* description   */ NULL,
-            /* presentFormat */ NULL);
-
-        // SC Control Point
-        sc_control_point_id = gatt_.addCharacteristic(
-            /* uuid          */ SC_CONTROL_POINT_CHAR_UUID,
-            /* properties    */ (GATT_CHARS_PROPERTIES_WRITE |
-                                 GATT_CHARS_PROPERTIES_INDICATE),
-            /* min_len       */ 1,
-            /* max_len       */ SC_CONTROL_POINT_MAX_LENGTH,
-            /* datatype      */ BLE_DATATYPE_AUTO, // ???
-            /* description   */ NULL,
-            /* presentFormat */ NULL);
-    }
-
     bool update(const uint16_t crank_revs, const uint32_t last_crank_rev_timestamp_ms,
                 const uint32_t wheel_revs, const uint32_t last_wheel_rev_timestamp_ms,
                 uint16_t power_watts, const uint16_t total_energy_kj) {
-        uint8_t data[17] = {0};
+        // uint8_t data[17] = {0};
+        uint8_t data[9] = {0};
         uint8_t base;
         const bool update_cp = true;
         const bool update_csc = false;
@@ -369,7 +329,20 @@ class BLECyclingPower {
 
             base = 0;
             // flags: mandatory, 16 bit bitfield
-            uint16_t flags = (CPM_ACCUMULATED_ENERGY_PRESENT);
+            uint16_t flags = CPM_CRANK_REV_DATA_PRESENT;
+            // (CPM_ACCUMULATED_ENERGY_PRESENT |
+            //                   CPM_WHEEL_REV_DATA_PRESENT | 
+            //                   CPM_CRANK_REV_DATA_PRESENT);
+                            //   100000110000
+                            //   100000110000
+                            //  30-08-9c-00 4f-14-00-00 0D-7A-8B-06 82-F5-C3-00
+                                // - first 2 bites (08-30) Flags: 100000110000
+                                // - 3-4 bites (00-9c) Instantaneous Power: 156
+                                // - 5-8 bites (00-00-14-4f) Cumulative Wheel Revolutions: 5199
+                                // - 9-10 bites (7A-0D) Last Wheel Event Time: 31245
+                                // - 11-12 bites (06-8B) Cumulative Crank Revolutions: 1675
+                                // - 13-14 (F5-82) Last Crank Event Time: 62850
+                                // - 15-16 (00-C3) Accumulated Energy: 195
             APPEND_BUFFER(data, base, flags);
 
             // Instantaneous power: mandatory sint16 in Watts
@@ -377,58 +350,59 @@ class BLECyclingPower {
             if (power_watts > 0x7FFF) power_watts = 0x7FFF;
             APPEND_BUFFER(data, base, power_watts);
 
-            // Wheel revolution daa: uint32+uint16
+            // Wheel revolution data: uint32+uint16
             // Wheel revs: uint32: count of cumulative revolutions
-            APPEND_BUFFER(data, base, wheel_revs);
+            // uint32_t wheel_revs_rolled =  wheel_revs;
+            // APPEND_BUFFER(data, base, wheel_revs_rolled);
             // Last wheel rev event time: uint16, 1/2048s resolution
             // scale ms timestamp by 2048/1000 = 256/125 to get units right
-            uint16_t last_wheel_event_time_cp = \
-                (uint16_t) ((last_wheel_rev_timestamp_ms * 256) / 125);
-            APPEND_BUFFER(data, base, last_wheel_event_time_cp);
+            // uint16_t last_wheel_event_time_cp = \
+                (uint16_t) floor(last_wheel_rev_timestamp_ms * 2048 / 1000 );
+            // APPEND_BUFFER(data, base, last_wheel_event_time_cp);
 
             // 3.2.1.6 Crank revs has a pair of uint16s
             // ...cumulative crank revolutions
             APPEND_BUFFER(data, base, crank_revs);
-            // ...and last crank event time in 1/1024 sec.
+            // ...and    time in 1/1024 sec.
             // scale ms timestamp by 1024 / 1000 = 128/125 to get units right.
             uint16_t last_crank_event_time_cp = \
-                (uint16_t) ((last_crank_rev_timestamp_ms * 128) / 125);
+                (uint16_t) ((last_crank_rev_timestamp_ms * 1024 / 1000 ));
             APPEND_BUFFER(data, base, last_crank_event_time_cp);
 
             // 3.2.1.12 accumulated energy is in kJ uint16
-            APPEND_BUFFER(data, base, total_energy_kj);
+            // APPEND_BUFFER(data, base, total_energy_kj);
 
             cpm_success = gatt_.setChar(cp_measurement_id, data, base);
         }
 
-        if (update_csc) {
-            // Set up the CSC measurement with wheel and crank revs.
-            // https://github.com/oesmith/gatt-xml/blob/master/
-            // org.bluetooth.characteristic.csc_measurement.xml
-            base = 0;
-            // Flags: uint8
-            uint8_t csc_flags = (CSCM_WHEEL_REV_DATA_PRESENT |
-                                 CSCM_CRANK_REV_DATA_PRESENT);
-            APPEND_BUFFER(data, base, csc_flags);
+        // if (update_csc) {
+        //     // Set up the CSC measurement with wheel and crank revs.
+        //     // https://github.com/oesmith/gatt-xml/blob/master/
+        //     // org.bluetooth.characteristic.csc_measurement.xml
+        //     base = 0;
+        //     // Flags: uint8
+        //     uint8_t csc_flags = (CSCM_WHEEL_REV_DATA_PRESENT |
+        //                          CSCM_CRANK_REV_DATA_PRESENT);
+        //     APPEND_BUFFER(data, base, csc_flags);
 
-            // Cumulative wheel revs uint32
-            APPEND_BUFFER(data, base, wheel_revs);
-            // Last wheel rev event time: uint16, 1/1024s resolution
-            // NB! Time resolution for wheel revs is lower in CSC than in CP!
-            // CP would expect 1/2048.
-            uint16_t last_wheel_event_time_csc = \
-                (uint16_t) ((last_wheel_rev_timestamp_ms * 128) / 125);
-            APPEND_BUFFER(data, base, last_wheel_event_time_csc);
+        //     // Cumulative wheel revs uint32
+        //     APPEND_BUFFER(data, base, wheel_revs);
+        //     // Last wheel rev event time: uint16, 1/1024s resolution
+        //     // NB! Time resolution for wheel revs is lower in CSC than in CP!
+        //     // CP would expect 1/2048.
+        //     uint16_t last_wheel_event_time_csc = \
+        //         (uint16_t) ((last_wheel_rev_timestamp_ms * 128) / 125);
+        //     APPEND_BUFFER(data, base, last_wheel_event_time_csc);
 
-            // Cumulative crank revs uint16
-            APPEND_BUFFER(data, base, crank_revs);
-            // Last Crank event time uint16 in 1/1024s units
-            uint16_t last_crank_event_time = \
-                (uint16_t) ((last_crank_rev_timestamp_ms * 128) / 125);
-            APPEND_BUFFER(data, base, last_crank_event_time);
+        //     // Cumulative crank revs uint16
+        //     APPEND_BUFFER(data, base, crank_revs);
+        //     // Last Crank event time uint16 in 1/1024s units
+        //     uint16_t last_crank_event_time = \
+        //         (uint16_t) ((last_crank_rev_timestamp_ms * 128) / 125);
+        //     APPEND_BUFFER(data, base, last_crank_event_time);
 
-            csc_success = gatt_.setChar(csc_measurement_id, data, base);
-        }
+        //     csc_success = gatt_.setChar(csc_measurement_id, data, base);
+        // }
 
         handle_sc_control_point();
         return cpm_success && csc_success;
