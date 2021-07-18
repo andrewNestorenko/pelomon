@@ -152,7 +152,6 @@ void setup() {
     bool use_simulator = (EEPROM.read(EEPROM_FORCE_SIMULATION_AT_STARTUP)
                           || (digitalRead(PIN_LOW_FORCE_SIM) == LOW)
                           || 0);
-    use_simulator = true;
     // Clear the force flag for next bootup
     if (use_simulator) EEPROM.update(EEPROM_FORCE_SIMULATION_AT_STARTUP,
                                      false);
