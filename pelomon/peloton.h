@@ -23,32 +23,32 @@ bool message_is_valid(uint8_t* msg, uint8_t len) {
     // First byte is always F5 / FE / F7 (head unit) or F1 (bike)
     // F5 and F1 are the ones used during rides and are frequent so
     // put them first in check.
-    if (! (msg[0] == 0xF5 || msg[0] == 0xF1 ||
-           msg[0] == 0xF7 || msg[0] == 0xFE)) {
-        if (LOG_LEVEL >= LOG_LEVEL_DEBUG) Serial.println(F("Invalid header"));
-        return false;
-    }
+    // if (! (msg[0] == 0xF5 || msg[0] == 0xF1 ||
+    //        msg[0] == 0xF7 || msg[0] == 0xFE)) {
+    //     if (LOG_LEVEL >= LOG_LEVEL_DEBUG) Serial.println(F("Invalid header"));
+    //     return false;
+    // }
 
-    // Verify length
-    if (msg[0] == 0xF1) {
-        if (msg[2] + 5 != len) {
-            if (LOG_LEVEL >= LOG_LEVEL_DEBUG) Serial.println(F("Invalid length F1"));
-            return false;
-        }
-    } else if (msg[0] == 0xF5 || msg[0] == 0xFE || msg[0] == 0xF7) {
-        if (len != 4) {
-            if (LOG_LEVEL >= LOG_LEVEL_DEBUG) {
-                Serial.print(F("Invalid length HU "));
-                Serial.println(len);
-            } 
-            return false;
-        }
-    }
+    // // Verify length
+    // if (msg[0] == 0xF1) {
+    //     if (msg[2] + 5 != len) {
+    //         if (LOG_LEVEL >= LOG_LEVEL_DEBUG) Serial.println(F("Invalid length F1"));
+    //         return false;
+    //     }
+    // } else if (msg[0] == 0xF5 || msg[0] == 0xFE || msg[0] == 0xF7) {
+    //     if (len != 4) {
+    //         if (LOG_LEVEL >= LOG_LEVEL_DEBUG) {
+    //             Serial.print(F("Invalid length HU "));
+    //             Serial.println(len);
+    //         } 
+    //         return false;
+    //     }
+    // }
 
-    // Verify checksum
-    uint8_t checksum = 0;
-    for (uint8_t i = 0; i < len-2; checksum += msg[i++]);
-    if (checksum != msg[len-2]) return false;
+    // // Verify checksum
+    // uint8_t checksum = 0;
+    // for (uint8_t i = 0; i < len-2; checksum += msg[i++]);
+    // if (checksum != msg[len-2]) return false;
 
     return true;
 }
@@ -88,22 +88,38 @@ class BikeMessage {
     Requests request;
     uint16_t value;
     bool is_valid;
+    uint16_t payload_length;
+    uint16_t skip_bytes;
     // Only parse valid messages _from the bike_, not the HU
     BikeMessage(uint8_t* bike_msg, const uint8_t len) {
         request = 0;
         value = 0;
-        if (!message_is_valid(bike_msg, len) || bike_msg[0] != 0xF1) {
+        // don't count on F1 as header for bike response
+        // if (!message_is_valid(bike_msg, len) || bike_msg[0] != 0xF1) {
+        //     is_valid = false;
+        //     return;
+        // }
+        if (!message_is_valid(bike_msg, len) || bike_msg[0] == 0xF5) {
             is_valid = false;
             return;
         }
-        request = bike_msg[1];
+        if (bike_msg[0] == 0xF1) { // bike responded with F1 as the first bite (normal case)
+            request = bike_msg[1];
+            payload_length = bike_msg[2];
+            skip_bytes = 2;
+        } else {
+            // bike didn't send F1 as first byte, read request status by the first byte
+            request = bike_msg[0];
+            payload_length = bike_msg[1];
+            skip_bytes = 1;
+        } 
+        
         if (request == BIKE_ID) {
             is_valid = true;
             value = 0;
             return;
         }
-        const uint8_t payload_length = bike_msg[2];
-        for (uint8_t i = 2 + payload_length; i > 2; i--) {
+        for (uint8_t i = skip_bytes + payload_length; i > skip_bytes; i--) {
             // -30 = Convert from ASCII to numeric
             uint8_t next_digit = bike_msg[i] - 0x30;
             // Check for overflow

@@ -207,7 +207,7 @@ bool receive_message_pair(void) {
 
     // Read bike message with no interruptions since HU completion
     // Enable timeout timer
-    enable_bike_timeout();
+    enable_bike_timeout(); // check if this may cause loss of the first byte
     while (!bike_message_complete) {
         // Wait a max of 10-11ms at each byte
         // (might be 10 if the timer ticks over immediately after we assign)
@@ -305,17 +305,19 @@ bool process_message_pair(void) {
                              ride_status.last_wheel_rev_ts_millis(),
                              ride_status.current_watts(),
                              ride_status.total_kj());
+
+
+        if (LOG_LEVEL >= LOG_LEVEL_INFO && updated_ride_status) {
+            // this call takes about 11ms in non DEBUG mode if only one print call
+            if (is_ble_updated) logger.print(F("BLE Serices Update: Success\n"));
+            else logger.print(F("BLE Serices Update: Failed\n"));
+            serial_print_state();
+        }
     }
 
     const unsigned long process_end = micros();
     unsigned long log_end;
 
-    if (LOG_LEVEL >= LOG_LEVEL_INFO && updated_ride_status) {
-        // this call takes about 11ms in non DEBUG mode if only one print call
-        if (is_ble_updated) logger.print(F("BLE Serices Update: Success\n"));
-        else logger.print(F("BLE Serices Update: Failed\n"));
-        serial_print_state();
-    }
     if (LOG_LEVEL >= LOG_LEVEL_DEBUG) {
         snprintf_P(logbuf, 32, PSTR("proc %luus BT %luus\n"),
                    process_end-process_start, process_end-bt_start);
@@ -341,7 +343,7 @@ void loop() {
         boot_sequence_complete = process_message_pair();
     }
 
-    // During bootup, we really don't want to miss a message by handling a command,
+    // During bootup, we really don't want– to miss a message by handling a command,
     // so only accept commands during the first half of the 200ms inter-message
     // timing if we've started seeing the boot sequence.
     // After bootup, it's not *that* critical if we drop a message, since we'll

@@ -180,10 +180,10 @@ class RideStatus {
             if (LOG_LEVEL >= LOG_LEVEL_DEBUG) logger.print(F("Updating resistance\n"));
             update_new_resistance(msg.value, lut);
         } else {
-            logger.print(F("DEFAULT CASE IN RIDESTATUS::UPDATE\n"));
-            snprintf_P(logbuf, 32, "request %hhX\n",msg.request);
+            logger.print(F("Unknown response type from the bike\n"));
+            snprintf_P(logbuf, 32, "request %hhX\n", msg.request);
             logger.print(logbuf);
-            while(1);
+            // while(1);
         }
         const unsigned long update_end = micros();
         if (LOG_LEVEL >= LOG_LEVEL_DEBUG) {
